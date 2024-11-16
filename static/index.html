@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF File Downloads</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f9f9f9; margin: 40px; }
+        h1 { color: #333; }
+        ul { list-style-type: none; padding: 0; }
+        li { margin: 8px 0; }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    
+
+        #login-button,
+        #user-info-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+    
+        body.modal-open {
+            overflow: hidden;
+        }
+
+        .modal {
+            display: none;
+            position: fixed; 
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000; 
+            width: 100%; 
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+            margin: auto;
+            position: relative;
+            top: 50%; 
+            transform: translateY(-50%);
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.2);
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            cursor: pointer;
+        }
+    
+        .form-container input[type="text"],
+        .form-container input[type="password"],
+        .form-container input[type="contact"] {
+            width: 90%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    
+        .form-container button {
+            width: 97%;
+            padding: 10px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    
+        .form-container button:hover {
+            background-color: #0056b3;
+        }
+    
+
+        #user-menu {
+            display: none;
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 150px;
+        }
+    
+        #user-menu a {
+            display: block;
+            padding: 10px;
+            color: #333;
+            text-decoration: none;
+            font-size: 14px;
+        }
+    
+        #user-menu a:hover {
+            background-color: #f5f5f5;
+        }
+    
+
+        #chat-container {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            width: 50vw;
+            height: 75vh;
+            background-color: #fafafa;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: none;
+            z-index: 10;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+
+        #chat-box {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding-right: 5px;
+        }
+
+
+        #message {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        #send-button {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #send-button:hover {
+            background-color: #45a049;
+        }
+
+
+        .message-wrapper {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #ccc;
+            cursor: pointer;
+        }
+
+        .message-content {
+            display: flex;
+            flex-direction: column;
+            max-width: 75%;
+        }
+
+        .sender-id {
+            font-size: 0.85em;
+            color: #777;
+            margin-bottom: 3px;
+            line-height: 1;
+            font-weight: bold;
+        }
+
+        .message-bubble {
+            background-color: #e6e6e6;
+            padding: 12px;
+            border-radius: 12px;
+            word-wrap: break-word;
+            font-size: 1em;
+        }
+
+        .timestamp {
+            font-size: 0.8em;
+            color: #999;
+            margin-top: 3px;
+            align-self: flex-end;
+        }
+
+
+        .message-wrapper.sent .message-bubble {
+            background-color: #b3e0ff;
+        }
+
+        .message-wrapper.received .message-bubble {
+            background-color: #e6e6e6;
+        }
+
+    </style>
+    
+</head>
+    <button id="login-button">Login</button>
+
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+
+            <div id="login-form" class="form-container">
+                <h2>Login</h2>
+                <form>
+                    <input type="text" id="login-username" placeholder="Username" required>
+                    <input type="password" id="login-password" placeholder="Password" required>
+                    <button type="button" onclick="handleLogin()">Login</button>
+                </form>
+                <p>Have no account? <a href="#" id="register-link">Sign Up</a></p>
+            </div>
+
+            <div id="register-form" class="form-container" style="display: none;">
+                <h2>Sign Up</h2>
+                <form>
+                    <input type="text" id="register-username" placeholder="Username" required>
+                    <input type="password" id="register-password" placeholder="Password" required>
+                    <input type="password" id="register-confirm-password" placeholder="Confirm Password" required>
+                    <input type="text" id="register-contact-information" placeholder="Contact Information (Optional)">
+                    <button type="button" onclick="handleRegister()">Sign Up</button>
+                </form>
+                <p>Already have an account? <a href="#" id="login-link">Log In</a></p>
+            </div>
+
+        </div>
+    </div>
+
+
+    <div id="user-info" style="display: none;">
+        <button id="user-info-button" onclick="toggleMenu()">Profile</button>
+        <div id="user-menu">
+            <a href="#" onclick="openEditProfile()">Edit Profile</a>
+            <a href="#" onclick="logout()">Logout</a>
+        </div>
+    </div>
+
+
+    <div id="edit-profile-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditProfile()">&times;</span>
+            
+            <div id="edit-profile-form" class="form-container">
+                <h2>Edit Profile</h2>
+
+                <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                    <img id="edit-avatar" src="" alt="User Avatar" class="avatar" onclick="document.getElementById('avatar-upload').click()">
+                    <input type="file" id="avatar-upload" style="display: none;" accept="image/*" onchange="uploadAvatar(this)">
+                </div>
+
+                <form>
+                    <input type="text" id="current-username" placeholder="Username" readonly>
+                    <input type="text" id="new-username" placeholder="New Username">
+                    <input type="text" id="edit-contact-information" placeholder="Contact Information (Optional)">
+
+                    <input type="password" id="current-password" placeholder="Current Password">
+                    <input type="password" id="new-password" placeholder="New Password">
+                    <input type="password" id="confirm-new-password" placeholder="Confirm New Password">
+                    
+                    <button type="button" onclick="saveProfile()">Save</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="chat-container">
+        <h2></h2>
+        <div id="chat-box"></div>
+        <input type="text" id="message" placeholder="Input..." />
+        <button id="send-button" onclick="sendMessage()">Send</button>
+    </div>
+
+    <h1>Available PDF Files</h1>
+    <p id="loading-message">Loading files...</p>
+    <ul id="file-list" style="display: none;"></ul>
+
+    <script>
+        let chatTimerId;
+        let currentUser = "";
+        let logIn = false;
+        let currentAvatarUrl = "avatar/default-avatar.jpg";
+
+        function loadFileList(){
+            const fileList = document.getElementById("file-list");
+            const loadingMessage = document.getElementById("loading-message");
+            fileList.innerHTML = ""; 
+            fetch("/file-list")
+                .then(response => response.json())
+                .then(data => {
+                    loadingMessage.style.display = "none";
+                    fileList.style.display = "block";
+
+                    data.files.forEach(file => {
+                        const listItem = document.createElement("li");
+                        const link = document.createElement("a");
+                        // files can be downloaded if user login
+                        if (logIn) {
+                            link.href = `/download/${file}`;
+                            link.textContent = file;
+                            link.download = file;
+                        } else {
+                            link.textContent = file;
+                            link.style.color = "gray"; ]
+                            link.style.cursor = "not-allowed";
+                            link.title = "Please log in to download this file";
+                        }
+
+                        listItem.appendChild(link);
+                        fileList.appendChild(listItem);
+                    });
+                })
+                .catch(error => {
+                    console.error("Error fetching file list:", error);
+                    document.getElementById("loading-message").textContent = "Failed to load files.";
+                });
+        }
+
+        const modal = document.getElementById("login-modal");
+        const loginButton = document.getElementById("login-button");
+        const closeButton = document.querySelector(".close");
+        const loginForm = document.getElementById("login-form");
+        const registerForm = document.getElementById("register-form");
+        const registerLink = document.getElementById("register-link");
+        const loginLink = document.getElementById("login-link");
+
+        document.addEventListener("DOMContentLoaded", loadFileList);
+
+        loginButton.onclick = function() {
+            modal.style.display = "block";
+            showLoginForm();
+        }
+
+        closeButton.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById("edit-profile-modal");
+            const menu = document.getElementById("user-menu");
+
+            if (event.target === modal) {
+                modal.style.display = "none";
+            }
+
+            if (!event.target.matches('#user-info-button')) {
+                if (menu.style.display === "block") {
+                    menu.style.display = "none";
+                }
+            }
+        };
+
+        registerLink.onclick = function(event) {
+            event.preventDefault();
+            showRegisterForm();
+        }
+
+        loginLink.onclick = function(event) {
+            event.preventDefault();
+            showLoginForm();
+        }
+
+        function showLoginForm() {
+            loginForm.style.display = "block";
+            registerForm.style.display = "none";
+        }
+
+        function showRegisterForm() {
+            loginForm.style.display = "none";
+            registerForm.style.display = "block";
+        }
+
+        //get new chat messages every 5 seconds
+        function loadChatTimer(){
+            loadChatMessages();
+            chatTimerId = setInterval(loadChatMessages, 5000);
+        }
+
+        //stop getting chat messages
+        function stopChatTimer() {
+            clearInterval(chatTimerId); 
+            console.log('Chat timer stopped');
+        }
+
+        //login
+        function handleLogin() {
+            const username = document.getElementById("login-username").value;
+            const password = document.getElementById("login-password").value;
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password,
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Login successful');
+                    currentUser = username;
+                    logIn = true;
+                    loadFileList();
+                    console.log("currentUser", currentUser);
+                    document.getElementById("user-info-button").textContent = username || "username";
+                    modal.style.display = "none"; 
+                    document.getElementById("chat-container").style.display = "flex";
+                    document.getElementById("login-button").style.display = "none";
+                    document.getElementById("user-info").style.display = "block";
+                    loadChatTimer();
+                } else {
+                    alert('Login failed: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Request failed');
+            });
+        }
+
+        //sign up
+        function handleRegister() {
+            const username = document.getElementById("register-username").value;
+            const password = document.getElementById("register-password").value;
+            const confirmPassword = document.getElementById("register-confirm-password").value;
+            const contact = document.getElementById("register-contact-information").value;
+
+            if (password !== confirmPassword) {
+                alert("Passwords do not match!");
+                return;
+            }
+
+            fetch('/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password,
+                    contact: contact,
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Registration successful');
+                } else {
+                    alert('Registration failed: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Request failed');
+            });
+        }
+
+        function toggleMenu() {
+            const menu = document.getElementById("user-menu");
+            menu.style.display = menu.style.display === "block" ? "none" : "block";
+        }
+
+        function openEditProfile() {
+            document.getElementById("edit-profile-modal").style.display = "block";
+            document.getElementById("current-username").value = currentUser;
+            document.getElementById("new-username").value = '';
+            document.getElementById("current-password").value = '';
+            document.getElementById("new-password").value = '';
+            document.getElementById("confirm-new-password").value = '';
+            queryUser();
+            console.log("avatar", currentAvatarUrl);
+            document.getElementById("edit-avatar").src = currentAvatarUrl;
+            toggleMenu();
+        }
+
+        function closeEditProfile() {
+            document.getElementById("edit-profile-modal").style.display = "none";
+        }
+
+        function queryUser(){
+            fetch(`/query-user?username=${currentUser}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const contact = data.contact;
+                        const avatar = data.avatar;
+                        document.getElementById("edit-contact-information").value = contact;
+                        currentAvatarUrl = "avatar/"+avatar;
+                        document.getElementById("edit-avatar").src = currentAvatarUrl;
+                        console.log("avatar", currentAvatarUrl);
+                    }
+                    else{
+                        alert('Failed to Find User Profile');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Request Failed');
+                });
+        }
+
+        function saveProfile() {
+            const contact = document.getElementById("edit-contact-information")?.value || '';
+            const currentPassword = document.getElementById("current-password")?.value || '';
+            const newPassword = document.getElementById("new-password")?.value || '';
+            const confirmNewPassword = document.getElementById("confirm-new-password")?.value || '';
+            const newName = document.getElementById("new-username")?.value || '';
+
+            if (newPassword && newPassword !== confirmNewPassword) {
+                alert("New passwords do not match!");
+                return;
+            }
+
+            const updatedProfileData = {
+                username: currentUser,
+                contact: contact,
+                currentPassword: currentPassword,
+                newPassword: newPassword, 
+                newName: newName,
+            };
+            console.log("update-profile");
+            fetch('/update-profile', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updatedProfileData),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Profile updated successfully');
+                    if(newName != ''){
+                        currentUser = newName;
+                        document.getElementById("user-info-button").textContent = newName;
+                    }
+                    closeEditProfile(); // Close the edit profile modal
+                } else {
+                    alert('Profile update failed: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Request failed');
+            });
+        }
+
+
+        // logout
+        function logout() {
+            document.getElementById("chat-container").style.display = "none";
+            document.getElementById("login-button").style.display = "block";
+            document.getElementById("user-info").style.display = "none";
+            stopChatTimer();
+            alert("Logged out");
+        }
+
+        function sendMessage() {
+            const message = document.getElementById("message").value;
+            if (message.trim() !== "") {
+                const timestamp = Math.floor(Date.now() / 1000);  //unix timestemp / second
+
+                fetch('/send-message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        senderId: currentUser,
+                        text: message.trim(),  
+                        timestamp: timestamp   
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById("message").value = ""; 
+                    } else {
+                        alert('Failed to send message');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Request failed');
+                });
+            }
+        }
+
+
+        let chatCache = [];  // cache for chat history
+        let lastTimestamp = 0;  // messsages later than this timestamp need to be required
+
+        function loadChatMessages() {
+            fetch(`/get-chat-messages?after=${lastTimestamp}`) 
+                .then(response => response.json())
+                .then(data => {
+                    if (data.messages && data.messages.length > 0) {
+                        const chatBox = document.getElementById("chat-box");
+
+                        chatCache = [...chatCache, ...data.messages];
+                        lastTimestamp = data.messages[data.messages.length - 1].timestamp;  
+
+                        // use DocumentFragment to add messages to the chatbox
+                        const fragment = document.createDocumentFragment();
+                        data.messages.forEach(msg => {
+                            const messageElement = createMessageElement(msg);
+                            fragment.appendChild(messageElement);
+                        });
+                        chatBox.appendChild(fragment);
+
+                        // scorll to the latest message
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to load chat messages');
+                });
+        }
+
+
+        function createMessageElement(msg) {
+            const messageWrapper = document.createElement("div");
+            messageWrapper.classList.add("message-wrapper");
+
+            if (msg.senderId == currentUser) {
+                messageWrapper.classList.add("sent");
+            } else {
+                messageWrapper.classList.add("received");
+            }
+
+            const avatar = document.createElement("img");
+            avatar.src = msg.avatarUrl && msg.avatarUrl.trim() !== "" ? "avatar/" + msg.avatarUrl : "avatar/default-avatar.jpg";
+            avatar.classList.add("avatar");
+
+            const messageContent = document.createElement("div");
+            messageContent.classList.add("message-content");
+
+            const senderId = document.createElement("div");
+            senderId.classList.add("sender-id");
+            senderId.textContent = msg.senderId;
+
+            const messageBubble = document.createElement("div");
+            messageBubble.classList.add("message-bubble");
+            messageBubble.textContent = msg.text;
+
+            const date = new Date(msg.timestamp * 1000);
+            const formattedTime = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+
+            const timestamp = document.createElement("div");
+            timestamp.classList.add("timestamp");
+            timestamp.textContent = formattedTime;
+
+            messageContent.appendChild(senderId);
+            messageContent.appendChild(messageBubble);
+            messageContent.appendChild(timestamp);
+
+            messageWrapper.appendChild(avatar);
+            messageWrapper.appendChild(messageContent);
+
+            return messageWrapper;
+        }
+
+        //upload avatar to the server
+        function uploadAvatar(input) {
+            const file = input.files[0];
+            if (file) {
+                const formData = new FormData();
+                formData.append("avatar", file);
+
+                fetch(`/upload-avatar?username=${currentUser}`, {
+                    method: 'POST',
+                    body: formData,
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById("edit-avatar").src = data.newAvatarUrl;
+                        currentAvatarUrl = data.newAvatarUrl;
+                        console.log("currentAvatarUrl", currentAvatarUrl);
+                        
+                        alert("Avatar updated successfully!");
+                    } else {
+                        alert("Failed to update avatar: " + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("Request failed.");
+                });
+            }
+        }
+    </script>    
+</body>
+</html>
