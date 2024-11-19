@@ -55,7 +55,7 @@ This project is a lightweight, high-performance Webserver built in C++ using **B
 - Ensure **Boost** and **MySQL Connector C++** are installed on your system.
 
 ### 2. Clone the Repository and Build the Project
-- Update `main.cpp` with the correct IP/port, MySQL credentials and table schema.
+- Update `main.cpp` with the correct IP/port and MySQL credentials.
 ```sh
 git clone https://github.com/blue-soda/webserver.git
 cd webserver
