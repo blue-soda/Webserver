@@ -328,7 +328,7 @@
                             link.download = file;
                         } else {
                             link.textContent = file;
-                            link.style.color = "gray"; ]
+                            link.style.color = "gray"; 
                             link.style.cursor = "not-allowed";
                             link.title = "Please log in to download this file";
                         }
@@ -507,7 +507,7 @@
         }
 
         function queryUser(){
-            fetch(`/query-user?username=${currentUser}`)
+            fetch(`/query-user?username=${encodeURIComponent(currentUser)}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -618,16 +618,18 @@
 
         let chatCache = [];  // cache for chat history
         let lastTimestamp = 0;  // messsages later than this timestamp need to be required
+        let lastSenderId = ""; // last messsage sender's Id
 
         function loadChatMessages() {
-            fetch(`/get-chat-messages?after=${lastTimestamp}`) 
+            fetch(`/get-chat-messages?after=${lastTimestamp}&sender=${encodeURIComponent(lastSenderId)}`) 
                 .then(response => response.json())
                 .then(data => {
                     if (data.messages && data.messages.length > 0) {
                         const chatBox = document.getElementById("chat-box");
 
                         chatCache = [...chatCache, ...data.messages];
-                        lastTimestamp = data.messages[data.messages.length - 1].timestamp;  
+                        lastTimestamp = data.messages[data.messages.length - 1].timestamp;
+                        lastSenderId = data.messages[data.messages.length - 1].senderId;
 
                         // use DocumentFragment to add messages to the chatbox
                         const fragment = document.createDocumentFragment();
@@ -659,7 +661,7 @@
             }
 
             const avatar = document.createElement("img");
-            avatar.src = msg.avatarUrl && msg.avatarUrl.trim() !== "" ? "avatar/" + msg.avatarUrl : "avatar/default-avatar.jpg";
+            avatar.src = msg.avatarUrl && msg.avatarUrl.trim() !== "" ? `avatar/${msg.avatarUrl}` : "avatar/default-avatar.jpg";
             avatar.classList.add("avatar");
 
             const messageContent = document.createElement("div");
@@ -697,7 +699,7 @@
                 const formData = new FormData();
                 formData.append("avatar", file);
 
-                fetch(`/upload-avatar?username=${currentUser}`, {
+                fetch(`/upload-avatar?username=${encodeURIComponent(currentUser)}`, {
                     method: 'POST',
                     body: formData,
                 })
