@@ -38,12 +38,12 @@ void HttpConn::handleRequest(){
     if (target == "/file-list") {
         std::string jsonResponse = listFilesAsJson(DATA_DIR);
         generateResponse(jsonResponse, "application/json");
-        logger_ << "HttpConn: file-list";
+        logger_.info() << "HttpConn: file-list";
     } 
     else if(target.rfind("/download/", 0) == 0) { 
         std::string filename = target.substr(10); 
         sendFile(DATA_DIR + filename);
-        logger_ << std::string("HttpConn: download file: ") + filename;
+        logger_.info() << std::string("HttpConn: download file: ") + filename;
     }   
     else if (target == "/") {  
         std::ifstream file(INDEX_HTML_PATH);
@@ -52,11 +52,11 @@ void HttpConn::handleRequest(){
             buffer << file.rdbuf();
             std::string body = buffer.str();
             generateResponse(body, "text/html", http::status::ok);
-            logger_ << "HttpConn: Serving index.html";
+            logger_.info() << "HttpConn: Serving index.html";
         } else {
             std::string body = "<html><body><h1>404 - Not Found</h1></body></html>";
             generateResponse(body, "text/html", http::status::not_found);
-            logger_ << "HttpConn: index.html not found, sent 404";
+            logger_.error() << "HttpConn: index.html not found, sent 404";
         }
     }   
     else if(target == "/login" && request_.method() == http::verb::post) { 
@@ -107,7 +107,7 @@ void HttpConn::handleRequest(){
 
         generateResponse(json::serialize(responseJson), "application/json");
 
-        logger_ << "HttpConn: register request";
+        logger_.info() << "HttpConn: register request";
     }
     else if(target == "/update-profile" && request_.method() == http::verb::post) { 
 
@@ -139,10 +139,10 @@ void HttpConn::handleRequest(){
 
         generateResponse(json::serialize(responseJson), "application/json");
 
-        logger_ << "HttpConn: Update request";
+        logger_.info() << "HttpConn: Update request";
     }
     else if(target.rfind("/query-user") == 0){
-        std::string username = getQueryParameter(std::string(request_.target()), "username");
+        std::string username = urlDecode(getQueryParameter(std::string(request_.target()), "username"));
         json::object responseJson;
         try{
             std::shared_ptr<sql::ResultSet> res = sqlHandler_->queryUser(username);
@@ -178,31 +178,39 @@ void HttpConn::handleRequest(){
             std::lock_guard<std::mutex> lock(mtx_);
             responseJson["success"] = true;
             chatHistory_.insert(std::make_pair(timestamp, std::move(requestData)));
-            logger_ << "HttpConn: ChatHistory Added, Now Have " + std::to_string(chatHistory_.size()) + " Messages.";
+            logger_.info() << "HttpConn: ChatHistory Added, Now Have " + std::to_string(chatHistory_.size()) + " Messages.";
         }
         else
             responseJson["success"] = false;
         generateResponse(json::serialize(responseJson), "application/json");
-        logger_ << "HttpConn: Get Message At " + std::to_string(timestamp) + " From User " + username + ": " + message;
+        logger_.info() << "HttpConn: Get Message At " + std::to_string(timestamp) + " From User " + username + ": " + message;
     }
     else if(target.rfind("/get-chat-messages") == 0){
         json::object responseJson;
-        std::string afterStr = getQueryParameter(std::string(request_.target()), "after");
-        if (afterStr.empty()) {
+        std::string lastTimeStamp = getQueryParameter(std::string(request_.target()), "after");
+        std::string lastSenderId = urlDecode(getQueryParameter(std::string(request_.target()), "sender"));
+        if (lastTimeStamp.empty()) {
                 responseJson["text"] = "Missing 'after' query parameter";
                 responseJson["success"] = false;
                 generateResponse(json::serialize(responseJson), "application/json", http::status::bad_request);
-            logger_ << "HttpConn: bad_request.";
+            logger_.error() << "HttpConn: bad_request.";
             return;
         }
         json::array messages;
 
-        long long int currentTimeStamp = std::stoll(afterStr.c_str());
-        logger_ << "HttpConn: Request Chat Message After: " + std::to_string(currentTimeStamp);
-        auto itUpper = chatHistory_.upper_bound(currentTimeStamp);
+        long long int currentTimeStamp = std::stoll(lastTimeStamp.c_str());
+        logger_.info() << "HttpConn: Request Chat Message After: " + lastSenderId + " At " + std::to_string(currentTimeStamp);
+        auto itUpper = chatHistory_.lower_bound(currentTimeStamp);
+        bool IsLastSender = (lastSenderId == "");
         for (auto it = itUpper; it != chatHistory_.end(); ++it) {
             json::object obj = it->second;
             std::string username = json::value_to<std::string>(obj["senderId"]);
+            if(!IsLastSender){
+                if(username == lastSenderId){
+                    IsLastSender = true;
+                }
+                continue;
+            }
             std::string message = json::value_to<std::string>(obj["text"]);
             long long int timestamp = json::value_to<long long int>(obj["timestamp"]);
             std::string avatarUrl = "default-avatar.jpg";
@@ -225,17 +233,30 @@ void HttpConn::handleRequest(){
 
         responseJson["messages"] = messages;
         generateResponse(json::serialize(responseJson), "application/json");
-        logger_ << "HttpConn: Chat Messages Sent.";
+        logger_.info() << "HttpConn: Chat Messages Sent.";
     }
     else if(target.rfind("/avatar") == 0){
         std::string file_path = AVATAR_DIR + target.substr(8);
-        sendFile(file_path);
-        logger_ << "HttpConn: Sent Avatar " + file_path;
+        bool success = sendFile(file_path);
+        if(success)
+            logger_.info() << "HttpConn: Send Avatar " + file_path;
+        else{
+            logger_.error() << "HttpConn: " + file_path + " Not Found.";
+        }
     }
     else if (target.rfind("/upload-avatar") == 0 && request_.method() == http::verb::post) {
         json::object responseJson;
-        std::string username = getQueryParameter(std::string(request_.target()), "username");
-        logger_.info() << "HttpConn: " + username + " Uploading Avatar.";
+        std::string username = urlDecode(getQueryParameter(std::string(request_.target()), "username"));
+        std::string uniqueUserId = "-1";
+        try{
+            auto res = sqlHandler_->queryUser(username);
+            res->next();
+            uniqueUserId = std::to_string(res->getInt("id"));
+        }
+        catch(const sql::SQLException& e){
+            logger_.error() << "HttpConn: " + username + " Upload Avatar Failed: " << e.what();
+        }
+        logger_.info() << "HttpConn: " + username + "(" + uniqueUserId + ") Uploading Avatar.";
         try {
             responseJson["success"] = false;
             // 确保 Content-Type 是 multipart/form-data
@@ -328,7 +349,7 @@ void HttpConn::handleRequest(){
             std::string file_data = body.substr(start_pos, end_pos - start_pos);
 
             // save the file under AVATAR_DIR
-            std::string avatar = std::to_string(std::time(nullptr)) + extension;
+            std::string avatar = uniqueUserId + extension; //std::to_string(std::time(nullptr)) + extension;
             std::string filename = AVATAR_DIR + avatar;
             std::ofstream output(filename, std::ios::binary);
             if (!output.is_open()) {
@@ -438,13 +459,13 @@ std::string getQueryParameter(const std::string& url, const std::string& param) 
     return url.substr(start, end - start);
 }
 
-void HttpConn::sendFile(const std::string& file_path) {
+bool HttpConn::sendFile(const std::string& file_path) {
     std::string decoded_path = urlDecode(file_path);
     std::ifstream file(decoded_path, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         generateResponse("File not found", "text/plain", http::status::not_found);
-        logger_ << "HttpConn: File not found.";
-        return;
+        logger_.error() << "HttpConn: File not found.";
+        return false;
     }
 
     // std::ostringstream buffer;
@@ -455,7 +476,7 @@ void HttpConn::sendFile(const std::string& file_path) {
     std::vector<char> fileContent(fileSize);
     if (!file.read(fileContent.data(), fileSize)) {
         generateResponse("Error reading file", "text/plain", http::status::internal_server_error);
-        return;
+        return false;
     }
     logger_ << std::string("filesize: ") + std::to_string(fileSize);
     std::string fileContentStr(fileContent.begin(), fileContent.end());
@@ -475,12 +496,13 @@ void HttpConn::sendFile(const std::string& file_path) {
 
     try{
         http::write(*socket_, res);
-        logger_ << "HttpConn: Sendfile Successed.";
+        logger_.info() << "HttpConn: Sendfile Successed.";
+        return true;
     }
     catch (const std::exception& e){
-        logger_.error();
-        logger_ << "HttpConn: Sendfile Failed:" << e.what();
+        logger_.error() << "HttpConn: Sendfile Failed:" << e.what();
     }
+    return false;
     // http::async_write(socket_, res, [&](const boost::system::error_code& ec, std::size_t bytes_transferred) {
     //     if (ec) {
     //         logger_.error();
