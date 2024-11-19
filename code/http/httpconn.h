@@ -44,7 +44,7 @@ public:
     void handleClient();
     void handleRequest();
     void close();
-    void sendFile(const std::string& file_path);
+    bool sendFile(const std::string& file_path);
 private:
     static std::mutex mtx_;
     std::shared_ptr<SqlHandler> sqlHandler_;
