@@ -57,8 +57,8 @@ This project is a lightweight, high-performance Webserver built in C++ using **B
 ### 2. Clone the Repository and Build the Project
 - Update `main.cpp` with the correct IP/port and MySQL credentials.
 ```sh
-git clone https://github.com/blue-soda/webserver.git
-cd webserver
+git clone https://github.com/blue-soda/Webserver.git
+cd Webserver
 mkdir build
 cd build
 cmake ..
